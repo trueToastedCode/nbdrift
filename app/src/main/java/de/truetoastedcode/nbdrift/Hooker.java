@@ -21,8 +21,7 @@ public class Hooker {
     private Method replacement;
     private Object owner = null;
 
-    private Hooker() {
-    }
+    private Hooker() {}
 
     private native Method doHook(Member original, Method callback);
 
