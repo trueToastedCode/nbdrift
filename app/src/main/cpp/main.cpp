@@ -236,6 +236,8 @@ static void log_bytes(void *addr, size_t count) {
  * This allows custom Java code to run within the target app
  */
 static void injectDex() {
+    LOGD("Begin DEX injection");
+
     if (!env) {
         LOGE("injectDex(): env not set");
         return;

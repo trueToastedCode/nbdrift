@@ -11,7 +11,6 @@ import android.widget.TextView;
 
 public final class EntryPoint {
     public static final String TAG = "nbdrift";
-    public static final ClassLoader contextClassLoader = Thread.currentThread().getContextClassLoader();
     
     private final Set<String> loadedClasses = new HashSet<>();
     private boolean targetClassLoader = false;
@@ -39,13 +38,13 @@ public final class EntryPoint {
                 loadedClasses.add(className);
                 ClassLoader loaderInstance = (ClassLoader) callback.args[0];
                 String loaderType = loaderInstance.getClass().getName();
-                Log.i(TAG, "Class loaded: " + className + " by " + loaderType);
+                // Log.i(TAG, "Class loaded: " + className + " by " + loaderType);
                 onClassLoaded((ClassLoader) callback.args[0], className);
             }
             
             return result;
         } catch (Exception e) {
-            Log.e(TAG, "Error in hookedLoadClass for: " + className, e);
+            // Log.e(TAG, "Error in hookedLoadClass for: " + className, e);
             return null;
         }
     }
@@ -67,21 +66,17 @@ public final class EntryPoint {
                 loadedClasses.add(className);
                 ClassLoader loaderInstance = (ClassLoader) callback.args[0];
                 String loaderType = loaderInstance.getClass().getName();
-                Log.i(TAG, "Class loaded (with resolve=" + resolve + "): " + className + " by " + loaderType);
+                // Log.i(TAG, "Class loaded (with resolve=" + resolve + "): " + className + " by " + loaderType);
                 onClassLoaded((ClassLoader) callback.args[0], className);
             }
             
             return result;
         } catch (Exception e) {
-            Log.e(TAG, "Error in hookedLoadClassWithResolve for: " + className, e);
+            // Log.e(TAG, "Error in hookedLoadClassWithResolve for: " + className, e);
             return null;
         }
     }
 
-    public static Class<?> findClass(String className) throws ClassNotFoundException {
-        return Class.forName(className, true, contextClassLoader);
-    }
-    
     /**
      * Initialize all ClassLoader hooks
      */
