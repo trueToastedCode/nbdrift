@@ -33,7 +33,8 @@ public class NbHook {
     InterceptorChainClass,                             // OkHttp Interceptor.Chain class
     BufferClass,                                       // Okio Buffer class
     BufferedSourceClass,                               // Okio BufferedSource class
-    CharsetClass;                                      // Java Charset class
+    CharsetClass,                                      // Java Charset class
+    JSONObjectClass;
 
     // === METHOD REFERENCES ===
     // All the Method objects we need to invoke at runtime
@@ -42,6 +43,7 @@ public class NbHook {
     BaseParametersInterceptorIsCanInjectToBodyMeth,             // Checks if we can inject params to body
     BaseParametersInterceptorBodyToStringMeth,                  // Converts RequestBody to String
     BaseParametersInterceptorEncodeMeth,                        // Encodes body parameters (encryption)
+    BaseParametersInterceptorConvertJsonMeth,
     FormBodyBuilderAddMeth,                                     // Adds key-value pair to form body
     FormBodyBuilderBuildMeth,                                   // Builds the form body
     MediaTypeParseMeth,                                         // Parses media type string
@@ -120,10 +122,11 @@ public class NbHook {
             // Check if we can inject additional parameters into the request body
             // This only works for POST requests with form-encoded content
             boolean canInjectToBody = (Boolean) BaseParametersInterceptorIsCanInjectToBodyMeth.invoke(thizz, request);
+            String bodyStr = null;
 
             if (canInjectToBody) {
                 // Convert existing request body to string format
-                String bodyStr = (String) BaseParametersInterceptorBodyToStringMeth.invoke(thizz, RequestBodyMeth.invoke(request));
+                bodyStr = (String) BaseParametersInterceptorBodyToStringMeth.invoke(thizz, RequestBodyMeth.invoke(request));
 
                 // Get the parameter provider from the interceptor instance
                 Object paramsProvider = mBodyParamsProviderField.get(thizz);
@@ -231,7 +234,19 @@ public class NbHook {
             Method responseBuilderBuildMethod = ResponseBuilderClass.getMethod("build");
             Object finalResponse = responseBuilderBuildMethod.invoke(responseBuilder);
 
-            Log.d(EntryPoint.TAG, "myBPIIntercept(): completed with decryption!");
+            Object bodyJson = null;
+            if (bodyStr != null) {
+                bodyJson = BaseParametersInterceptorConvertJsonMeth.invoke(thizz, bodyStr);
+            }
+
+            Log.d(EntryPoint.TAG, String.format(
+                "######## BEGIN REQUEST ########\n%s\n%s\n%s\n%s\n######## END REQUEST ########",
+                builtRequest,
+                (bodyJson == null) ? "<none>" : bodyJson,
+                finalResponse,
+                (decryptedText == null || decryptedText.isEmpty()) ? "<none>" : decryptedText
+            ));
+
             return finalResponse;
 
         } catch (Exception e) {
@@ -277,6 +292,7 @@ public class NbHook {
             BufferClass = TypeResolver.resolveClass("okio.Buffer");
             BufferedSourceClass = TypeResolver.resolveClass("okio.BufferedSource");
             CharsetClass = TypeResolver.resolveClass("java.nio.charset.Charset");
+            JSONObjectClass = TypeResolver.resolveClass("org.json.JSONObject");
             
             // === METHOD RESOLUTION ===
             // Get all method references - some need setAccessible(true) for private methods
@@ -287,6 +303,8 @@ public class NbHook {
             BaseParametersInterceptorBodyToStringMeth.setAccessible(true);
             BaseParametersInterceptorEncodeMeth = BaseParametersInterceptorClass.getDeclaredMethod("encode", String.class);
             BaseParametersInterceptorEncodeMeth.setAccessible(true);
+            BaseParametersInterceptorConvertJsonMeth = BaseParametersInterceptorClass.getDeclaredMethod("convertJson", String.class);
+            BaseParametersInterceptorConvertJsonMeth.setAccessible(true);
             FormBodyBuilderAddMeth = FormBodyBuilderClass.getMethod("add", String.class, String.class);
             FormBodyBuilderBuildMeth = FormBodyBuilderClass.getMethod("build");
             MediaTypeParseMeth = MediaTypeClass.getMethod("parse", String.class);
