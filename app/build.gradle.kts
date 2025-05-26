@@ -206,8 +206,8 @@ androidComponents.onVariants { variant ->
 
         val apkPathsToCopy = listOf(
             "config.en.apk",
-            "com.ninebot.segway.apk",
-            "config.xxhdpi.apk"
+            "config.xxhdpi.apk",
+            "com.ninebot.segway.apk"
         )
 
         val apkPathsToExtract = mapOf(
@@ -220,7 +220,8 @@ androidComponents.onVariants { variant ->
             "config.arm64_v8a.apk" to listOf(
                 "lib/arm64-v8a/libnesec.so",
                 "lib/arm64-v8a/lipc.so"
-            )
+            ),
+            "com.ninebot.segway.apk" to listOf()
         )
 
         val apksIntermediatesDir = layout.buildDirectory.dir("intermediates/components/$variantLowered")
@@ -336,12 +337,59 @@ androidComponents.onVariants { variant ->
             ))
             outputProcessor.set(ValidatingOutputProcessor())
         }
+
+        val decompileAndroidManifestTaskId = "decompileAndroidManifest${variantCapped}"
+
+        val decompileAndroidManifestTask = tasks.register<ComputeCmd>(decompileAndroidManifestTaskId) {
+            group = "build"
+            dependsOn(copyNewAssets1Task)
+
+            cmd.set(listOf(
+                "apktool",
+                "d",
+                "-s",
+                File(apksIntermediatesDir.get().asFile, "com.ninebot.segway.apk").absolutePath,
+                "-o",
+                File(apksIntermediatesDir.get().asFile, "com.ninebot.segway").absolutePath
+            ))
+            outputProcessor.set(ValidatingOutputProcessor())
+        }
+
+        val patchAndroidManifestTaskId = "patchAndroidManifest${variantCapped}"
+
+        val patchAndroidManifestTask = tasks.register<ComputeCmd>(patchAndroidManifestTaskId) {
+            group = "build"
+            dependsOn(decompileAndroidManifestTask)
+            cmd.set(listOf(
+                "python3",
+                rootProject.layout.projectDirectory.file("modify_manifest.py").asFile.absolutePath,
+                File(apksIntermediatesDir.get().asFile, "com.ninebot.segway/AndroidManifest.xml").absolutePath
+            ))
+            outputProcessor.set(ValidatingOutputProcessor())
+        }
+
+        val recompileAndroidManifestTaskId = "recompileAndroidManifest${variantCapped}"
+
+        val recompileAndroidManifestTask = tasks.register<ComputeCmd>(recompileAndroidManifestTaskId) {
+            group = "build"
+            dependsOn(patchAndroidManifestTask)
+            cmd.set(listOf(
+                "apktool",
+                "b",
+                File(apksIntermediatesDir.get().asFile, "com.ninebot.segway").absolutePath,
+                "-o",
+                File(apksIntermediatesDir.get().asFile, "com.ninebot.segway_patched.apk").absolutePath
+            ))
+            outputProcessor.set(ValidatingOutputProcessor())
+        }
         
         val zipApkFilesTask = tasks.register("zipApkFiles${variantCapped}") {
             group = "build"
-            dependsOn(patchElfTask1, patchElfTask2)
+            dependsOn(patchElfTask1, patchElfTask2, recompileAndroidManifestTask)
             doLast {
                 apkPathsToImport.forEach { (apkFileName, paths) ->
+                    if (paths.isEmpty()) return@forEach  // Skip this iteration if paths is empty
+
                     val apkFile = File(apksIntermediatesDir.get().asFile, apkFileName)
                     var outputApk = File(apksIntermediatesDir.get().asFile, apkFileName.removeSuffix(".apk") + "_patched.apk")
                     val inputDir = File(apksIntermediatesDir.get().asFile, apkFileName.removeSuffix(".apk"))
