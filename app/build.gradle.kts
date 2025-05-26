@@ -204,7 +204,7 @@ androidComponents.onVariants { variant ->
         val variantLowered = variant.name.lowercase()
         val variantCapped = variant.name.capitalizeUS()
 
-        val apkPathsToCopy = listOf(
+        val apkPathsToCopy = listOf<String>(
             "config.en.apk",
             "config.xxhdpi.apk",
             "com.ninebot.segway.apk"
@@ -221,7 +221,7 @@ androidComponents.onVariants { variant ->
                 "lib/arm64-v8a/libnesec.so",
                 "lib/arm64-v8a/lipc.so"
             ),
-            "com.ninebot.segway.apk" to listOf()
+            "com.ninebot.segway.apk" to listOf<String>()
         )
 
         val apksIntermediatesDir = layout.buildDirectory.dir("intermediates/components/$variantLowered")

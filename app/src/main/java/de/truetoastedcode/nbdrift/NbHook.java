@@ -1,6 +1,9 @@
 package de.truetoastedcode.nbdrift;
 
 import android.util.Log;
+import android.os.Bundle;
+import android.app.Activity;
+import android.content.Context;
 import android.text.TextUtils;
 import java.util.Map;
 import java.util.HashMap;
@@ -163,7 +166,8 @@ public class NbHook {
     ResponseBuilderBodyMeth,                                   // Sets response body
     ResponseBuilderBuildMeth,                                  // Builds response
     HeadersBuilderAddMeth,                                     // Adds header to headers builder
-    HeadersBuilderBuildMeth;                                   // Builds headers
+    HeadersBuilderBuildMeth,                                   // Builds headers
+    MainActivityOnCreateMeth;
 
     // === FIELD REFERENCES ===
     // All the Field objects we need to access at runtime

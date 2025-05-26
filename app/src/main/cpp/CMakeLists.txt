@@ -24,7 +24,7 @@ add_subdirectory(LSPlant/lsplant/src/main/jni)
 # include Dobby
 add_subdirectory(Dobby)
 
-set(MY_DATA_PATH "${CMAKE_CURRENT_SOURCE_DIR}/dummy_5000000.bin")
+set(MY_DATA_PATH "${CMAKE_CURRENT_SOURCE_DIR}/dummy_10000000.bin")
 
 # First process the path substitution using CMake's string command
 string(REPLACE "/" "_" SYM_PREFIX "${MY_DATA_PATH}")
