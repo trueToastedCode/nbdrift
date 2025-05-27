@@ -1,7 +1,12 @@
 package de.truetoastedcode.nbdrift;
 
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.nio.file.Files;
+import java.io.IOException;
 import android.util.Log;
 import android.os.Bundle;
+import android.os.Environment;
 import android.app.Activity;
 import android.content.Context;
 import android.text.TextUtils;
@@ -198,6 +203,31 @@ public class NbHook {
             "/app-api/app-version/v1/check",
             "{\"code\":1,\"desc\":\"Successfully\",\"data\":{\"latest_version\":null,\"version_name\":null,\"version_dec\":null,\"jump_type\":null,\"is_update\":0,\"is_force\":0,\"force_update_version\":null,\"popup_title\":null,\"button_sure\":null,\"button_cance\":null,\"load_url\":null},\"t\":0}"
         );
+
+        String fwIotPayload = null;
+
+        if (SimpleStorageChecker.canAccessStorage()) {
+            Path payloadPath = Paths.get(
+                Environment.getExternalStorageDirectory().getAbsolutePath(),
+                "nbdrift",
+                "fw-iot.json"
+            );
+            if (Files.exists(payloadPath)) {
+                try {
+                    fwIotPayload = new String(Files.readAllBytes(payloadPath));
+                } catch (IOException e) {
+                    Log.e(EntryPoint.TAG, "Error reading payload file: " + e.getMessage(), e);
+                }
+            } else {
+                Log.d(EntryPoint.TAG, "Payload file does not exist at: " + payloadPath.toString());
+            }
+        } else {
+            Log.e(EntryPoint.TAG, "Cannot access storage. Permission may be missing.");
+        }
+
+        if (fwIotPayload != null) {
+            addSimulatedResponse("/vehicle/firmware/get-last-version-iot", fwIotPayload);
+        }
     }
 
     /**
