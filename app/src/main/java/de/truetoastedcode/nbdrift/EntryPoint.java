@@ -19,6 +19,7 @@ public final class EntryPoint {
         if (!targetClassLoader && className.equals("cn.ninebot.ninebot.mainshell.NBApplication")) {
             targetClassLoader = true;
             new NbHook();
+            new NbPermissionHook();
         }
     }
 
