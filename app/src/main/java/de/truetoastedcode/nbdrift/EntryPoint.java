@@ -20,6 +20,7 @@ public final class EntryPoint {
             targetClassLoader = true;
             new NbHook();
             new NbPermissionHook();
+            new HookDeviceData();
         }
     }
 
