@@ -420,10 +420,10 @@ static int prepareHookingEnv() {
         .inline_hooker = inlineHooker,
         .inline_unhooker = inlineUnHooker,
         .art_symbol_resolver = [](std::string_view symbol) -> void * {
-            return elf_img.GetSymbolAddress(symbol, false, false);
+            return elf_img.GetSymbolAddress(symbol, true, false);
         },
         .art_symbol_prefix_resolver = [](std::string_view symbol) -> void * {
-            return elf_img.GetSymbolAddress(symbol, false, true);
+            return elf_img.GetSymbolAddress(symbol, true, true);
         },
     };
     

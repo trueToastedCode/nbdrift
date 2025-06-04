@@ -4,3 +4,6 @@
 [submodule "app/src/main/cpp/LSPlant"]
 	path = app/src/main/cpp/LSPlant
 	url = https://github.com/trueToastedCode/LSPlant.git
+[submodule "app/src/main/cpp/xz"]
+	path = app/src/main/cpp/xz
+	url = https://github.com/tukaani-project/xz.git

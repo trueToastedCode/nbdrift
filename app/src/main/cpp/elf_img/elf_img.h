@@ -1,6 +1,6 @@
 /**
 * @file elf_img.hpp
-* @brief ELF Image Utility for Symbol Resolution
+* @brief ELF Image Utility for Symbol Resolution with .gnu_debugdata support
 * 
 * Original work Copyright (c) Swift Gan (github user ganyao114)
 * Modified work Copyright (c) canyie (github user canyie)
@@ -14,6 +14,8 @@
 #include <string_view>
 #include <jni.h>
 #include <cstdio>
+#include <vector>
+#include <cstdint>
 
 // Platform-specific ELF type definitions
 #if defined(__LP64__)
@@ -114,6 +116,13 @@ namespace pine {
         */
         void* GetModuleBase(const char* name);
 
+        /**
+        * Process .gnu_debugdata section (compressed debug symbols)
+        * @param debug_data Pointer to compressed debug data
+        * @param debug_size Size of compressed debug data
+        */
+        void ProcessGnuDebugData(const uint8_t* debug_data, size_t debug_size);
+
         // Library directories for different architectures
 #ifdef __LP64__
         static constexpr const char* kSystemLibDir = "/system/lib64/";
@@ -125,7 +134,7 @@ namespace pine {
         static constexpr const char* kApexArtLibDir = "/apex/com.android.art/lib/";
 #endif
 
-        // Member variables
+        // Original member variables
         const char* elf = nullptr;
         jint android_version = 0;
         void* base = nullptr;
@@ -148,5 +157,15 @@ namespace pine {
         Elf_Off dynsym_offset = 0;
         Elf_Off symtab_size = 0;
         Elf_Off dynsym_size = 0;
+
+        // New member variables for .gnu_debugdata support
+        std::vector<uint8_t> debug_data_buffer;
+        Elf_Ehdr* debug_header_ptr = nullptr;
+        Elf_Shdr* debug_symtab = nullptr;
+        Elf_Sym* debug_symtab_start = nullptr;
+        Elf_Off debug_symtab_count = 0;
+        Elf_Off debug_symtab_offset = 0;
+        Elf_Off debug_symtab_size = 0;
+        Elf_Off debug_symstr_offset = 0;
     };
 } // namespace pine

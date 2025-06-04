@@ -14,7 +14,7 @@ enum uLogType {
     UWARN  = 5
 };
 
-#define UTAG "znmodsample"
+#define UTAG "elfimg"
 
 #define ULOGD(...) ((void) __android_log_print(UDEBUG, UTAG, __VA_ARGS__))
 #define ULOGE(...) ((void) __android_log_print(UERROR, UTAG, __VA_ARGS__))
