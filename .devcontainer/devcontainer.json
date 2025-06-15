@@ -1,0 +1,22 @@
+{
+  "name": "Segway Mobility Dev Container",
+  "build": {
+    "dockerfile": "Dockerfile",
+    "args": {
+      "GRADLE_VERSION": "8.14",
+      "NDK_VERSION": "29.0.13113456",
+      "CMAKE_VERSION": "3.31.6",
+      "BUILD_TOOLS_VERSION": "36.0.0",
+      "APKTOOL_VERSION": "v2.11.1"
+    }
+  },
+  "settings": {
+    "terminal.integrated.defaultProfile.linux": "bash"
+  },
+  "extensions": [
+    "ms-vscode.cpptools",           // Beispiel: C/C++ Unterstützung
+    "ms-azuretools.vscode-docker",  // Docker Extension
+    "ms-vscode.cmake-tools"         // CMake-Unterstützung
+  ],
+  "remoteUser": "vscode"
+}
