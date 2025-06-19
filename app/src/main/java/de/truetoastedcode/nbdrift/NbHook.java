@@ -170,6 +170,9 @@ public class NbHook {
     ResponseBuilderHeadersMeth,                                // Sets response headers
     ResponseBuilderBodyMeth,                                   // Sets response body
     ResponseBuilderBuildMeth,                                  // Builds response
+    ResponseBuilderNetworkResponseMeth,
+    ResponseBuilderSentRequestAtMillisMeth,
+    ResponseBuilderReceivedResponseAtMillisMeth,
     HeadersBuilderAddMeth,                                     // Adds header to headers builder
     HeadersBuilderBuildMeth,                                   // Builds headers
     MainActivityOnCreateMeth;
@@ -402,38 +405,53 @@ public class NbHook {
      */
     private Object createSimulatedResponse(Object request, SimulatedResponse simulatedResp) {
         try {
+            if (request == null) {
+                throw new IllegalArgumentException("request() == null");
+            }
+
             // Create response body with the simulated content
             Object mediaType = MediaTypeParseMeth.invoke(null, simulatedResp.contentType);
             Object responseBody = ResponseBodyCreateMeth.invoke(null, simulatedResp.body, mediaType);
 
             // Create headers builder and add custom headers
             Object headersBuilder = HeadersBuilderConst.newInstance();
-            
-            // Add default headers
             HeadersBuilderAddMeth.invoke(headersBuilder, "Content-Type", simulatedResp.contentType);
             HeadersBuilderAddMeth.invoke(headersBuilder, "Content-Length", String.valueOf(simulatedResp.body.length()));
-            
-            // Add custom headers
             for (Map.Entry<String, String> header : simulatedResp.headers.entrySet()) {
                 HeadersBuilderAddMeth.invoke(headersBuilder, header.getKey(), header.getValue());
             }
-            
             Object headers = HeadersBuilderBuildMeth.invoke(headersBuilder);
 
-            // Build the response with all components
+            // Create a networkResponse with no body
+            Object networkResponseBuilder = ResponseBuilderConst.newInstance();
+            ResponseBuilderCodeMeth.invoke(networkResponseBuilder, simulatedResp.statusCode);
+            ResponseBuilderMessageMeth.invoke(networkResponseBuilder, getStatusMessage(simulatedResp.statusCode));
+            ResponseBuilderProtocolMeth.invoke(networkResponseBuilder, HTTP_1_1_PROTOCOL);
+            ResponseBuilderHeadersMeth.invoke(networkResponseBuilder, headers);
+            // Set the request on networkResponseBuilder
+            Method requestMethod = ResponseBuilderClass.getMethod("request", RequestClass);
+            requestMethod.invoke(networkResponseBuilder, request);
+            // No body set for networkResponse to comply with OkHttp constraints
+            Object networkResponse = ResponseBuilderBuildMeth.invoke(networkResponseBuilder);
+
+            // Build the main response
             Object responseBuilder = ResponseBuilderConst.newInstance();
             ResponseBuilderCodeMeth.invoke(responseBuilder, simulatedResp.statusCode);
             ResponseBuilderMessageMeth.invoke(responseBuilder, getStatusMessage(simulatedResp.statusCode));
             ResponseBuilderProtocolMeth.invoke(responseBuilder, HTTP_1_1_PROTOCOL);
             ResponseBuilderHeadersMeth.invoke(responseBuilder, headers);
             ResponseBuilderBodyMeth.invoke(responseBuilder, responseBody);
-            
+            ResponseBuilderNetworkResponseMeth.invoke(responseBuilder, networkResponse);
+
+            // Set timing fields
+            long currentTime = System.currentTimeMillis();
+            ResponseBuilderSentRequestAtMillisMeth.invoke(responseBuilder, currentTime - 100);
+            ResponseBuilderReceivedResponseAtMillisMeth.invoke(responseBuilder, currentTime);
+
             // Set the request on the response
-            Method requestMethod = ResponseBuilderClass.getMethod("request", RequestClass);
             requestMethod.invoke(responseBuilder, request);
 
             return ResponseBuilderBuildMeth.invoke(responseBuilder);
-
         } catch (Exception e) {
             Log.e(EntryPoint.TAG, "createSimulatedResponse(): [error] " + Log.getStackTraceString(e));
             return null;
@@ -490,36 +508,6 @@ public class NbHook {
             Object
             request = InterceptorChainRequestMeth.invoke(chain),
             reqBuilder = RequestNewBuilderMeth.invoke(request);
-
-            // === CHECK FOR SIMULATED RESPONSE ===
-            // Get the request URL and check if it matches any simulated response patterns
-            Object requestUrl = RequestUrlMeth.invoke(request);
-            String urlString = (String) HttpUrlToStringMeth.invoke(requestUrl);
-            
-            SimulatedResponse simulatedResp = getSimulatedResponseForUrl(urlString);
-            if (simulatedResp != null) {
-                Log.d(EntryPoint.TAG, "Returning simulated response for URL: " + urlString);
-                
-                // Execute the callback if one is provided
-                simulatedResp.executeCallback(urlString, request);
-                
-                Object simulatedResponse = createSimulatedResponse(request, simulatedResp);
-                
-                if (simulatedResponse != null) {
-                    // Log the simulated response
-                    Log.d(EntryPoint.TAG, String.format(
-                        "######## BEGIN SIMULATED REQUEST ########\n%s\n%s\n<simulated>\n%s\n%s\n######## END SIMULATED REQUEST ########",
-                        (String) HttpUrlEncodedPath.invoke(requestUrl),
-                        request,
-                        simulatedResponse,
-                        simulatedResp.body
-                    ));
-                    
-                    return simulatedResponse;
-                }
-                
-                Log.w(EntryPoint.TAG, "Failed to create simulated response, falling back to real request");
-            }
 
             // === REQUEST BODY PARAMETER INJECTION ===
             // Check if we can inject additional parameters into the request body
@@ -580,8 +568,40 @@ public class NbHook {
             }
 
             // === HTTP REQUEST EXECUTION ===
-            // Build the final request and execute it through the chain
+            // Build the final request
             Object builtRequest = RequestBuilderBuildMeth.invoke(reqBuilder);
+
+            // === CHECK FOR SIMULATED RESPONSE ===
+            // Get the request URL and check if it matches any simulated response patterns
+            Object requestUrl = RequestUrlMeth.invoke(request);
+            String urlString = (String) HttpUrlToStringMeth.invoke(requestUrl);
+            
+            SimulatedResponse simulatedResp = getSimulatedResponseForUrl(urlString);
+            if (simulatedResp != null) {
+                Log.d(EntryPoint.TAG, "Returning simulated response for URL: " + urlString);
+                
+                // Execute the callback if one is provided
+                simulatedResp.executeCallback(urlString, builtRequest);
+                
+                Object simulatedResponse = createSimulatedResponse(builtRequest, simulatedResp);
+                
+                if (simulatedResponse != null) {
+                    // Log the simulated response
+                    Log.d(EntryPoint.TAG, String.format(
+                        "######## BEGIN SIMULATED REQUEST ########\n%s\n%s\n<simulated>\n%s\n%s\n######## END SIMULATED REQUEST ########",
+                        (String) HttpUrlEncodedPath.invoke(requestUrl),
+                        builtRequest,
+                        simulatedResponse,
+                        simulatedResp.body
+                    ));
+                    
+                    return simulatedResponse;
+                }
+                
+                Log.w(EntryPoint.TAG, "Failed to create simulated response, falling back to real request");
+            }
+
+            // execute it through the chain
             Object response = InterceptorChainProceedMeth.invoke(chain, builtRequest);
 
             // === RESPONSE DECRYPTION HANDLING ===
@@ -663,6 +683,39 @@ public class NbHook {
         }
     }
 
+    // public Object myNetworkResponse(Hooker.MethodCallback callback) {
+    //     try {
+    //         Object result = callback.backup.invoke(callback.args[0]);
+    //         Log.d(EntryPoint.TAG, "myNetworkResponse(): " + (result == null ? "null" : "Object"));
+    //         return result;
+    //     } catch (Exception e) {
+    //         Log.e(EntryPoint.TAG, "myNetworkResponse(): " + e.getMessage(), e);
+    //         return null;
+    //     }
+    // }
+
+    // public Object myCacheResponse(Hooker.MethodCallback callback) {
+    //     try {
+    //         Object result = callback.backup.invoke(callback.args[0]);
+    //         Log.d(EntryPoint.TAG, "myCacheResponse(): " + (result == null ? "null" : "Object"));
+    //         return result;
+    //     } catch (Exception e) {
+    //         Log.e(EntryPoint.TAG, "myCacheResponse(): " + e.getMessage(), e);
+    //         return null;
+    //     }
+    // }
+
+    // public Object myPriorResponse(Hooker.MethodCallback callback) {
+    //     try {
+    //         Object result = callback.backup.invoke(callback.args[0]);
+    //         Log.d(EntryPoint.TAG, "myPriorResponse(): " + (result == null ? "null" : "Object"));
+    //         return result;
+    //     } catch (Exception e) {
+    //         Log.e(EntryPoint.TAG, "myPriorResponse(): " + e.getMessage(), e);
+    //         return null;
+    //     }
+    // }
+
     /**
      * Sets up all reflection references and installs the method hook
      * 
@@ -739,6 +792,9 @@ public class NbHook {
             ResponseBuilderHeadersMeth = ResponseBuilderClass.getMethod("headers", TypeResolver.resolveClass("okhttp3.Headers"));
             ResponseBuilderBodyMeth = ResponseBuilderClass.getMethod("body", ResponseBodyClass);
             ResponseBuilderBuildMeth = ResponseBuilderClass.getMethod("build");
+            ResponseBuilderNetworkResponseMeth = ResponseBuilderClass.getMethod("networkResponse", ResponseClass);
+            ResponseBuilderSentRequestAtMillisMeth = ResponseBuilderClass.getMethod("sentRequestAtMillis", long.class);
+            ResponseBuilderReceivedResponseAtMillisMeth = ResponseBuilderClass.getMethod("receivedResponseAtMillis", long.class);
             HeadersBuilderAddMeth = HeadersBuilderClass.getMethod("add", String.class, String.class);
             HeadersBuilderBuildMeth = HeadersBuilderClass.getMethod("build");
 
