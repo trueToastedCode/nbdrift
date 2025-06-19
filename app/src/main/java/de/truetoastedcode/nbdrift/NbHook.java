@@ -121,6 +121,7 @@ public class NbHook {
     ResponseBodyClass,                                 // OkHttp ResponseBody class
     MediaTypeClass,                                    // OkHttp MediaType class
     HttpUrlClass,                                      // OkHttp HttpUrl class
+    HttpUrlBuilderClass,
     FormBodyBuilderClass,                              // OkHttp FormBody.Builder class
     InterceptorChainClass,                             // OkHttp Interceptor.Chain class
     BufferClass,                                       // Okio Buffer class
@@ -143,6 +144,7 @@ public class NbHook {
     MediaTypeParseMeth,                                         // Parses media type string
     RequestBodyCreateMeth,                                      // Creates RequestBody with content
     RequestBuilderPostMeth,                                     // Sets POST method on request builder
+    RequestBuilderSetUrlMeth,
     InterceptorChainRequestMeth,                                // Gets request from interceptor chain
     InterceptorChainProceedMeth,                                // Proceeds with request in chain
     RequestNewBuilderMeth,                                      // Creates new request builder
@@ -151,6 +153,9 @@ public class NbHook {
     RequestUrlMeth,                                             // Gets the url from request
     HttpUrlEncodedPath,                                         // Gets the encoded path from httpurl
     HttpUrlToStringMeth,                                        // Gets string representation of URL
+    HttpUrlNewBuilderMeth,
+    HttpUrlBuilderSetSchemeMeth,
+    HttpUrlBuilderBuildMeth,
     BaseParametersInterceptorParametersProviderParametersMeth,  // Gets parameters from provider
     RequestBuilderBuildMeth,                                    // Builds the request
     ResponseNewBuilderMeth,                                     // Creates new response builder
@@ -509,6 +514,20 @@ public class NbHook {
             request = InterceptorChainRequestMeth.invoke(chain),
             reqBuilder = RequestNewBuilderMeth.invoke(request);
 
+            // === CHECK FOR SIMULATED RESPONSE ===
+            // Get the request URL and check if it matches any simulated response patterns
+            Object requestUrl = RequestUrlMeth.invoke(request);
+            String urlString = (String) HttpUrlToStringMeth.invoke(requestUrl);
+
+            SimulatedResponse simulatedResp = getSimulatedResponseForUrl(urlString);
+            if (simulatedResp != null) {
+                Object urlBuilder = HttpUrlNewBuilderMeth.invoke(requestUrl);
+                HttpUrlBuilderSetSchemeMeth.invoke(urlBuilder, "http");
+                Object newRequestUrl = HttpUrlBuilderBuildMeth.invoke(urlBuilder);
+                RequestBuilderSetUrlMeth.invoke(reqBuilder, newRequestUrl);
+                Log.d(EntryPoint.TAG, "Changed URL scheme to HTTP for simulated response.");
+            }
+
             // === REQUEST BODY PARAMETER INJECTION ===
             // Check if we can inject additional parameters into the request body
             // This only works for POST requests with form-encoded content
@@ -571,12 +590,6 @@ public class NbHook {
             // Build the final request
             Object builtRequest = RequestBuilderBuildMeth.invoke(reqBuilder);
 
-            // === CHECK FOR SIMULATED RESPONSE ===
-            // Get the request URL and check if it matches any simulated response patterns
-            Object requestUrl = RequestUrlMeth.invoke(request);
-            String urlString = (String) HttpUrlToStringMeth.invoke(requestUrl);
-            
-            SimulatedResponse simulatedResp = getSimulatedResponseForUrl(urlString);
             if (simulatedResp != null) {
                 Log.d(EntryPoint.TAG, "Returning simulated response for URL: " + urlString);
                 
@@ -740,6 +753,7 @@ public class NbHook {
             ResponseBodyClass = TypeResolver.resolveClass("okhttp3.ResponseBody");
             MediaTypeClass = TypeResolver.resolveClass("okhttp3.MediaType");
             HttpUrlClass = TypeResolver.resolveClass("okhttp3.HttpUrl");
+            HttpUrlBuilderClass = TypeResolver.resolveClass("okhttp3.HttpUrl$Builder");
             FormBodyBuilderClass = TypeResolver.resolveClass("okhttp3.FormBody$Builder");
             InterceptorChainClass = TypeResolver.resolveClass("okhttp3.Interceptor$Chain");
             BufferClass = TypeResolver.resolveClass("okio.Buffer");
@@ -765,6 +779,7 @@ public class NbHook {
             MediaTypeParseMeth = MediaTypeClass.getMethod("parse", String.class);
             RequestBodyCreateMeth = RequestBodyClass.getMethod("create", String.class, MediaTypeClass);
             RequestBuilderPostMeth = RequestBuilderClass.getMethod("post", RequestBodyClass);
+            RequestBuilderSetUrlMeth = RequestBuilderClass.getMethod("setUrl$okhttp", HttpUrlClass);
             InterceptorChainRequestMeth = InterceptorChainClass.getMethod("request");
             InterceptorChainProceedMeth = InterceptorChainClass.getMethod("proceed", RequestClass);
             RequestNewBuilderMeth = RequestClass.getMethod("newBuilder");
@@ -773,6 +788,9 @@ public class NbHook {
             RequestUrlMeth = RequestClass.getMethod("url");
             HttpUrlEncodedPath = HttpUrlClass.getMethod("encodedPath");
             HttpUrlToStringMeth = HttpUrlClass.getMethod("toString");
+            HttpUrlNewBuilderMeth = HttpUrlClass.getMethod("newBuilder");
+            HttpUrlBuilderSetSchemeMeth = HttpUrlBuilderClass.getMethod("scheme", String.class);
+            HttpUrlBuilderBuildMeth = HttpUrlBuilderClass.getMethod("build");
             BaseParametersInterceptorParametersProviderParametersMeth = BaseParametersInterceptorParametersProviderClass.getMethod("parameters");
             RequestBuilderBuildMeth = RequestBuilderClass.getMethod("build");
             ResponseNewBuilderMeth = ResponseClass.getMethod("newBuilder");
