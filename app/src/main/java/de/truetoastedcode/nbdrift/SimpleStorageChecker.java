@@ -1,6 +1,11 @@
 package de.truetoastedcode.nbdrift;
 
 import java.io.File;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.nio.file.Files;
+import java.io.IOException;
+import android.os.Environment;
 
 public class SimpleStorageChecker {
     private static Boolean canAccess = null;
@@ -26,15 +31,22 @@ public class SimpleStorageChecker {
     
     private static boolean performStorageCheck() {
         try {
-            File storageDir = new File("/storage/emulated/0");
+            // Use proper Android API to get external storage directory
+            File externalStorageDir = Environment.getExternalStorageDirectory();
+            
+            // Check if external storage is available and mounted
+            String state = Environment.getExternalStorageState();
+            if (!Environment.MEDIA_MOUNTED.equals(state)) {
+                return false;
+            }
             
             // Check if directory exists and is readable
-            if (!storageDir.exists() || !storageDir.canRead()) {
+            if (!externalStorageDir.exists() || !externalStorageDir.canRead()) {
                 return false;
             }
             
             // Test actual write capability
-            File testFile = new File(storageDir, ".temp_access_test");
+            File testFile = new File(externalStorageDir, ".temp_access_test");
             boolean canWrite = testFile.createNewFile();
             
             if (canWrite) {
@@ -43,7 +55,14 @@ public class SimpleStorageChecker {
             
             return canWrite;
             
+        } catch (SecurityException e) {
+            // Handle permission denied
+            return false;
+        } catch (IOException e) {
+            // Handle I/O errors
+            return false;
         } catch (Exception e) {
+            // Handle any other unexpected errors
             return false;
         }
     }
